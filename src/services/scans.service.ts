@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { CommitSummary } from "./githubClient.js";
-import { findGeneratedLeaks, LeakHit } from "./leakIdentifier.util.js";
-import { getCurrentRepoState, getCurrentRepoTarget, github } from "./state.js";
+import { CommitSummary } from "../clients/githubClient.js";
+import { findGeneratedLeaks, LeakHit } from "../utils/leakIdentifier.util.js";
+import { getCurrentRepoState, getCurrentRepoTarget, github } from "./state.service.js";
 
 type ScannedCommit = CommitSummary & {
   scanStatus: "pending" | "done";
@@ -36,7 +36,9 @@ export const initiateScan = async (owner: string, repo: string, branch: string) 
 
   while (collected.length < MAX_COMMITS) {
     const commits = await github.getCommits(owner, repo, branch, page, PAGE_SIZE);
-    console.log(`[scan][${owner}/${repo}#${branch}] fetched total ${collected.length + commits.length} commits`);
+    console.log(
+      `[scan][${owner}/${repo}#${branch}] fetched total ${collected.length + commits.length} commits`,
+    );
     if (!commits.length) {
       break;
     }
@@ -51,7 +53,6 @@ export const initiateScan = async (owner: string, repo: string, branch: string) 
       if (collected.length >= MAX_COMMITS) break;
     }
 
-    // Finished running through branch
     if (commits.length < PAGE_SIZE) {
       break;
     }
@@ -67,7 +68,6 @@ export const initiateScan = async (owner: string, repo: string, branch: string) 
     lastUpdated: new Date().toISOString(),
   };
 
-  // Kick off leak detection asynchronously to keep data visible early.
   startLeakDetection(owner, repo, branch).catch((err) =>
     console.error(`[scan][${owner}/${repo}#${branch}] leak detection failed`, err),
   );

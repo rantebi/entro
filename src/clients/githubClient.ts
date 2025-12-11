@@ -66,7 +66,7 @@ export class GitHubClient {
           onRetry: (error, attempt) => {
             const message = error instanceof Error ? error.message : String(error);
             console.warn(`[github][retry] attempt ${attempt} failed for ${context}: ${message}`);
-          },  
+          },
         },
       );
     } catch (error) {

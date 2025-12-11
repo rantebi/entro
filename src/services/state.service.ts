@@ -1,4 +1,4 @@
-import { GitHubClient } from "./githubClient.js";
+import { GitHubClient } from "../clients/githubClient.js";
 
 export type RepoInput = {
   repoWebUrl: string;

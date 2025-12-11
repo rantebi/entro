@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
-import { initiateScan } from "./scans.js";
-import { github, getCurrentRepoState, getCurrentRepoTarget, setRepoState } from "./state.js";
-import { RepoInput } from "./state.js";
+import { initiateScan } from "./scans.service.js";
+import {
+  github,
+  getCurrentRepoState,
+  getCurrentRepoTarget,
+  setRepoState,
+  RepoInput,
+} from "./state.service.js";
 
 const parseGitHubUrl = (repoWebUrl: string) => {
   try {
@@ -44,8 +49,9 @@ export const handlePostRepo = async (
     };
     setRepoState(repoState, parsed);
 
-    initiateScan(parsed.owner, parsed.repo, repoBranch)
-      .catch((err) => console.error("scan failed", err));
+    initiateScan(parsed.owner, parsed.repo, repoBranch).catch((err) =>
+      console.error("scan failed", err),
+    );
 
     return res.status(201).json({
       message: "Repo stored",

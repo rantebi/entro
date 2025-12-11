@@ -1,4 +1,4 @@
-import { CommitDiff } from "./githubClient.js";
+import { CommitDiff } from "../clients/githubClient.js";
 
 export type LeakHit = {
   file: string;
@@ -37,7 +37,6 @@ export const findGeneratedLeaks = (diff: CommitDiff): LeakHit[] => {
         }
         currentLine += 1;
       } else if (line.startsWith("-") && !line.startsWith("---")) {
-        // Removed line; do not increment currentLine for target file
         continue;
       } else {
         currentLine += 1;

@@ -1,6 +1,6 @@
 import express from "express";
-import { handleGetRepo, handlePostRepo } from "./repos.js";
-import { handleGetScans } from "./scans.js";
+import { handleGetRepo, handlePostRepo } from "./services/repos.service.js";
+import { handleGetScans } from "./services/scans.service.js";
 
 export const app = express();
 
