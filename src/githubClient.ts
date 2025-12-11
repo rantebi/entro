@@ -1,4 +1,5 @@
 import { Octokit } from "@octokit/rest";
+import retry from "async-retry";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -49,10 +50,39 @@ export class GitHubClient {
     this.octokit = new Octokit({ auth: token });
   }
 
+  private async withRetry<T>(operation: () => Promise<T>, context: string): Promise<T> {
+    try {
+      return await retry(
+        async (_bail, attempt) => {
+          if (attempt > 1) {
+            console.log(`[github][retry] attempt ${attempt} for ${context}`);
+          }
+          return operation();
+        },
+        {
+          retries: 8,
+          factor: 2,
+          minTimeout: 100,
+          onRetry: (error, attempt) => {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn(`[github][retry] attempt ${attempt} failed for ${context}: ${message}`);
+          },  
+        },
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[github][retry] exhausted retries for ${context}: ${message}`);
+      throw error instanceof Error ? error : new Error(message);
+    }
+  }
+
   async getRepoBranchMetadata(owner: string, repo: string, branch: string): Promise<RepoBranchMetadata> {
     const [repoRes, branchRes] = await Promise.all([
-      this.octokit.repos.get({ owner, repo }),
-      this.octokit.repos.getBranch({ owner, repo, branch }),
+      this.withRetry(() => this.octokit.repos.get({ owner, repo }), `get repo ${owner}/${repo}`),
+      this.withRetry(
+        () => this.octokit.repos.getBranch({ owner, repo, branch }),
+        `get branch ${owner}/${repo}#${branch}`,
+      ),
     ]);
 
     return {
@@ -78,13 +108,17 @@ export class GitHubClient {
     page = 1,
     perPage = 30,
   ): Promise<CommitSummary[]> {
-    const commits = await this.octokit.repos.listCommits({
-      owner,
-      repo,
-      sha: branch,
-      page,
-      per_page: perPage,
-    });
+    const commits = await this.withRetry(
+      () =>
+        this.octokit.repos.listCommits({
+          owner,
+          repo,
+          sha: branch,
+          page,
+          per_page: perPage,
+        }),
+      `list commits ${owner}/${repo}#${branch} (page ${page}, size ${perPage})`,
+    );
 
     return commits.data.map((commit) => ({
       sha: commit.sha,
@@ -95,7 +129,10 @@ export class GitHubClient {
   }
 
   async getCommitDiff(owner: string, repo: string, commitSha: string): Promise<CommitDiff> {
-    const commit = await this.octokit.repos.getCommit({ owner, repo, ref: commitSha });
+    const commit = await this.withRetry(
+      () => this.octokit.repos.getCommit({ owner, repo, ref: commitSha }),
+      `get commit diff ${owner}/${repo}@${commitSha}`,
+    );
     const files =
       commit.data.files?.map((file) => ({
         filename: file.filename,
