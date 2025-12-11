@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import { CommitSummary } from "./githubClient.js";
+import { findGeneratedLeaks, LeakHit } from "./leakIdentifier.util.js";
 import { getCurrentRepoState, getCurrentRepoTarget, github } from "./state.js";
 
 type ScanResult = {
   branch: string;
-  commits: (CommitSummary & { hasLeaks: boolean })[];
+  commits: (CommitSummary & { hasLeaks: boolean; leaks: LeakHit[] })[];
   totalFetched: number;
   lastUpdated: string;
 };
@@ -13,15 +14,18 @@ const PAGE_SIZE = 50;
 const MAX_COMMITS = 40 * PAGE_SIZE;
 let latestScan: ScanResult | null = null;
 
-const enrichCommit = (commit: CommitSummary) => {
-  const hasLeaks = commit.sha.slice(-1).match(/[0-9a-f]/)
-    ? parseInt(commit.sha.slice(-1), 16) % 2 === 0
-    : false;
-  return { ...commit, hasLeaks };
+const enrichCommit = async (owner: string, repo: string, commit: CommitSummary) => {
+  const diff = await github.getCommitDiff(owner, repo, commit.sha);
+  const leaks = findGeneratedLeaks(diff);
+  const hasLeaks = leaks.length > 0;
+  if (hasLeaks) {
+    console.log(`[scan][${owner}/${repo}@${commit.sha}] found ${leaks.length} leaks`);
+  }
+  return { ...commit, hasLeaks, leaks };
 };
 
 export const initiateScan = async (owner: string, repo: string, branch: string) => {
-  const collected: (CommitSummary & { hasLeaks: boolean })[] = [];
+  const collected: (CommitSummary & { hasLeaks: boolean; leaks: LeakHit[] })[] = [];
   let page = 1;
 
   while (collected.length < MAX_COMMITS) {
@@ -31,9 +35,15 @@ export const initiateScan = async (owner: string, repo: string, branch: string) 
       break;
     }
 
-    collected.push(...commits.map(enrichCommit));
+    for (const commit of commits) {
+      const enriched = await enrichCommit(owner, repo, commit);
+      collected.push(enriched);
+      if (collected.length >= MAX_COMMITS) {
+        break;
+      }
+    }
 
-    // Finished running throuh branch
+    // Finished running through branch
     if (commits.length < PAGE_SIZE) {
       break;
     }
