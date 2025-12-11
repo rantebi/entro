@@ -20,6 +20,8 @@ export const App = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeBranch, setActiveBranch] = useState("main");
+  const [waiting, setWaiting] = useState(false);
+  const [countdown, setCountdown] = useState(10);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const canLoadMore = useMemo(() => commits.length < total, [commits.length, total]);
@@ -27,6 +29,8 @@ export const App = () => {
   const submitRepo = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setWaiting(false);
+    setCountdown(10);
     try {
       await postRepo({ repoWebUrl: form.repoWebUrl, repoBranch: form.repoBranch });
       setActiveBranch(form.repoBranch || "main");
@@ -38,12 +42,23 @@ export const App = () => {
     }
   };
 
+  const refetchAll = async () => {
+    setPage(1);
+    await loadPage(1, activeBranch, true);
+  };
+
   const loadPage = async (targetPage: number, branch: string, replace = false) => {
     setLoading(true);
     try {
       const data = await fetchScans({ branch, page: targetPage, pageSize: PAGE_SIZE });
       setTotal(data.total);
       setCommits((prev) => (replace ? data.commits : [...prev, ...data.commits]));
+      if (data.total === 0) {
+        setWaiting(true);
+        setCountdown(10);
+      } else {
+        setWaiting(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load scans");
     } finally {
@@ -67,6 +82,21 @@ export const App = () => {
     observer.observe(el);
     return () => observer.disconnect();
   }, [page, activeBranch, canLoadMore, loading]);
+
+  useEffect(() => {
+    if (!waiting) return;
+    setCountdown(10);
+    const timer = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          refetchAll();
+          return 10;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [waiting]);
 
   const shortenSha = (sha: string) => (sha.length > 8 ? sha.slice(0, 8) : sha);
 
@@ -127,7 +157,15 @@ export const App = () => {
               <span>{new Date(c.date).toLocaleString()}</span>
               <span>{c.author}</span>
               <span className="leaks">
-                {c.hasLeaks ? `${c.leaks?.length ?? 0} leak(s)` : "None"}
+                {c.scanStatus === "pending" ? (
+                  <button className="link" onClick={refetchAll} type="button">
+                    Pending
+                  </button>
+                ) : c.hasLeaks ? (
+                  `${c.leaks?.length ?? 0} leak(s)`
+                ) : (
+                  "None"
+                )}
                 {c.leaks && c.leaks.length > 0 && (
                   <span className="leaks-tooltip">
                     {c.leaks.map((l, idx) => (
@@ -141,7 +179,16 @@ export const App = () => {
             </div>
           ))}
           {loading && <div className="loading">Loading…</div>}
-          {!loading && commits.length === 0 && <div className="muted">No commits yet.</div>}
+          {!loading && commits.length === 0 && (
+            <div className="muted">
+              <div>Scan could be in progress</div>
+              {waiting ? (
+                <div>Refetching results in {countdown} sec</div>
+              ) : (
+                <div>No commits yet.</div>
+              )}
+            </div>
+          )}
           <div ref={loadMoreRef} style={{ height: 1 }} />
         </div>
       </section>

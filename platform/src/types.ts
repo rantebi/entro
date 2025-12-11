@@ -11,5 +11,6 @@ export type Commit = {
   date: string;
   hasLeaks?: boolean;
   leaks?: LeakHit[];
+  scanStatus?: "pending" | "done";
 };
 

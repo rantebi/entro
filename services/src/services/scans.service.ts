@@ -17,7 +17,7 @@ type ScanResult = {
 };
 
 const PAGE_SIZE = 50;
-const MAX_COMMITS = 40 * PAGE_SIZE;
+const MAX_COMMITS = 10 * PAGE_SIZE;
 let latestScan: ScanResult | null = null;
 
 const enrichCommit = async (owner: string, repo: string, commit: ScannedCommit) => {

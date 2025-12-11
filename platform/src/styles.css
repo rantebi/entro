@@ -73,6 +73,14 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.link {
+  background: none;
+  border: none;
+  color: #93c5fd;
+  padding: 0;
+  cursor: pointer;
+}
+
 .error {
   margin-top: 10px;
   color: #f87171;
