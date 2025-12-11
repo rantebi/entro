@@ -3,9 +3,15 @@ import { CommitSummary } from "./githubClient.js";
 import { findGeneratedLeaks, LeakHit } from "./leakIdentifier.util.js";
 import { getCurrentRepoState, getCurrentRepoTarget, github } from "./state.js";
 
+type ScannedCommit = CommitSummary & {
+  scanStatus: "pending" | "done";
+  hasLeaks: boolean;
+  leaks: LeakHit[];
+};
+
 type ScanResult = {
   branch: string;
-  commits: (CommitSummary & { hasLeaks: boolean; leaks: LeakHit[] })[];
+  commits: ScannedCommit[];
   totalFetched: number;
   lastUpdated: string;
 };
@@ -14,18 +20,18 @@ const PAGE_SIZE = 50;
 const MAX_COMMITS = 40 * PAGE_SIZE;
 let latestScan: ScanResult | null = null;
 
-const enrichCommit = async (owner: string, repo: string, commit: CommitSummary) => {
+const enrichCommit = async (owner: string, repo: string, commit: ScannedCommit) => {
   const diff = await github.getCommitDiff(owner, repo, commit.sha);
   const leaks = findGeneratedLeaks(diff);
   const hasLeaks = leaks.length > 0;
   if (hasLeaks) {
     console.log(`[scan][${owner}/${repo}@${commit.sha}] found ${leaks.length} leaks`);
   }
-  return { ...commit, hasLeaks, leaks };
+  return { ...commit, hasLeaks, leaks, scanStatus: "done" as const };
 };
 
 export const initiateScan = async (owner: string, repo: string, branch: string) => {
-  const collected: (CommitSummary & { hasLeaks: boolean; leaks: LeakHit[] })[] = [];
+  const collected: ScannedCommit[] = [];
   let page = 1;
 
   while (collected.length < MAX_COMMITS) {
@@ -36,11 +42,13 @@ export const initiateScan = async (owner: string, repo: string, branch: string) 
     }
 
     for (const commit of commits) {
-      const enriched = await enrichCommit(owner, repo, commit);
-      collected.push(enriched);
-      if (collected.length >= MAX_COMMITS) {
-        break;
-      }
+      collected.push({
+        ...commit,
+        hasLeaks: false,
+        leaks: [],
+        scanStatus: "pending",
+      });
+      if (collected.length >= MAX_COMMITS) break;
     }
 
     // Finished running through branch
@@ -59,7 +67,25 @@ export const initiateScan = async (owner: string, repo: string, branch: string) 
     lastUpdated: new Date().toISOString(),
   };
 
+  // Kick off leak detection asynchronously to keep data visible early.
+  startLeakDetection(owner, repo, branch).catch((err) =>
+    console.error(`[scan][${owner}/${repo}#${branch}] leak detection failed`, err),
+  );
+
   return latestScan;
+};
+
+const startLeakDetection = async (owner: string, repo: string, branch: string) => {
+  if (!latestScan || latestScan.branch !== branch) return;
+
+  for (let i = 0; i < latestScan.commits.length; i += 1) {
+    const commit = latestScan.commits[i];
+    if (commit.scanStatus === "done") continue;
+
+    const enriched = await enrichCommit(owner, repo, commit);
+    latestScan.commits[i] = enriched;
+    latestScan.lastUpdated = new Date().toISOString();
+  }
 };
 
 export const handleGetScans = (req: Request, res: Response) => {
