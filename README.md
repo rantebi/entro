@@ -16,9 +16,9 @@ Simple TypeScript Express backend that stores a repo/branch, scans commits, and 
 - `services/src/services/state.service.ts` — in-memory repo metadata and GitHub client singleton.
 - `services/src/services/repos.service.ts` — handles `/repos` POST/GET; kicks off scans after validation.
 - `services/src/services/scans.service.ts` — paginates commits (up to 2,000), stores them, then asynchronously enriches with leak findings.
-- `services/src/utils/leakIdentifier.util.ts` — detects leaks in commit diffs; currently flags added lines containing “Generated”.
+- `services/src/utils/leakIdentifier.util.ts` — detects leaks in commit diffs based on env toggle.
 
-Detection note: leak detection is currently limited to finding the literal text “Generated” in added lines.
+Detection note: by default the backend flags basic secret-looking values (tokens/keys) in added lines. Set env `DETECT_THE_WORD_GENERATED=true` to switch to the previous behavior that only looks for the word “Generated”.
 
 ## platform
 (reserved for upcoming React UI)

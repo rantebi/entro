@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { CommitSummary } from "../clients/githubClient.js";
-import { findGeneratedLeaks, LeakHit } from "../utils/leakIdentifier.util.js";
+import { findLeaks, LeakHit } from "../utils/leakIdentifier.util.js";
 import { getCurrentRepoState, getCurrentRepoTarget, github } from "./state.service.js";
 
 type ScannedCommit = CommitSummary & {
@@ -22,7 +22,7 @@ let latestScan: ScanResult | null = null;
 
 const enrichCommit = async (owner: string, repo: string, commit: ScannedCommit) => {
   const diff = await github.getCommitDiff(owner, repo, commit.sha);
-  const leaks = findGeneratedLeaks(diff);
+  const leaks = findLeaks(diff);
   const hasLeaks = leaks.length > 0;
   if (hasLeaks) {
     console.log(`[scan][${owner}/${repo}@${commit.sha}] found ${leaks.length} leaks`);
