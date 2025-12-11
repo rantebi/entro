@@ -4,6 +4,11 @@ Simple TypeScript Express backend that stores a repo/branch, scans commits, and 
 
 ## services
 
+To start 
+```bash
+cd services && npm run dev
+```
+
 ### Behaviour
 - Express API with `/repos` (configure repo/branch) and `/scans` (view scan results).
 -  GitHub calls include retry with exponential backoff.
@@ -21,5 +26,10 @@ Simple TypeScript Express backend that stores a repo/branch, scans commits, and 
 Detection note: by default the backend flags basic secret-looking values (tokens/keys) in added lines. Set env `DETECT_THE_WORD_GENERATED=true` to switch to the previous behavior that only looks for the word “Generated”.
 
 ## platform
-(reserved for upcoming React UI)
 
+Has supporting react application.
+
+To start
+```bash
+cd platform && npm run dev
+```
