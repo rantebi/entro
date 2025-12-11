@@ -1,6 +1,6 @@
 # Project Overview
 
-Simple TypeScript Express backend that stores a repo/branch, scans commits, and marks ones with detected leaks (currently just the word "Generated"). A future React frontend will live under `platform/`.
+Simple TypeScript Express backend that stores a repo/branch, scans commits, and marks ones with detected leaks. A future React frontend will live under `platform/`.
 
 ## services
 
