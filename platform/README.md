@@ -1,0 +1,4 @@
+# Platform
+
+Frontend (React) placeholder.
+
