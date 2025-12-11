@@ -44,7 +44,8 @@ export const handlePostRepo = async (
     };
     setRepoState(repoState, parsed);
 
-    await initiateScan(parsed.owner, parsed.repo, repoBranch);
+    initiateScan(parsed.owner, parsed.repo, repoBranch)
+      .catch((err) => console.error("scan failed", err));
 
     return res.status(201).json({
       message: "Repo stored",
