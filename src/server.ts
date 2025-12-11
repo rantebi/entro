@@ -18,25 +18,13 @@ type RepoState = RepoInput & {
 };
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT ?? 3000;
 
 app.use(express.json());
 
 let currentRepo: RepoState | null = null;
 let currentRepoTarget: { owner: string; repo: string } | null = null;
 const github = new GitHubClient();
-
-const buildDummyCommits = (count: number) =>
-  Array.from({ length: count }, (_, idx) => {
-    const number = count - idx;
-    return {
-      id: `commit-${number}`,
-      message: `Dummy commit ${number}`,
-      author: "Jane Doe",
-      date: new Date(Date.now() - idx * 60 * 60 * 1000).toISOString(),
-      hasLeaks: number % 2 === 0,
-    };
-  });
 
 const parseGitHubUrl = (repoWebUrl: string) => {
   try {
@@ -53,7 +41,7 @@ const parseGitHubUrl = (repoWebUrl: string) => {
 };
 
 app.post("/repos", async (req: Request<unknown, unknown, RepoInput>, res: Response) => {
-  const { repoWebUrl, repoBranch } = req.body || {};
+  const { repoWebUrl, repoBranch = "main" } = req.body || {};
 
   if (!repoWebUrl || !repoBranch) {
     return res.status(400).json({ error: "repoWebUrl and repoBranch are required" });
