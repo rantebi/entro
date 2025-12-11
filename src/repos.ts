@@ -1,24 +1,7 @@
 import { Request, Response } from "express";
-import { GitHubClient } from "./githubClient.js";
-
-type RepoInput = {
-  repoWebUrl: string;
-  repoBranch: string;
-};
-
-type RepoHealth = {
-  exists: boolean;
-  hasValidBranch: boolean;
-};
-
-type RepoState = RepoInput & {
-  health: RepoHealth;
-  totalCommits: number;
-};
-
-let currentRepo: RepoState | null = null;
-let currentRepoTarget: { owner: string; repo: string } | null = null;
-export const github = new GitHubClient();
+import { initiateScan } from "./scans.js";
+import { github, getCurrentRepoState, getCurrentRepoTarget, setRepoState } from "./state.js";
+import { RepoInput } from "./state.js";
 
 const parseGitHubUrl = (repoWebUrl: string) => {
   try {
@@ -33,9 +16,6 @@ const parseGitHubUrl = (repoWebUrl: string) => {
     return null;
   }
 };
-
-export const getCurrentRepoState = () => currentRepo;
-export const getCurrentRepoTarget = () => currentRepoTarget;
 
 export const handlePostRepo = async (
   req: Request<unknown, unknown, RepoInput>,
@@ -56,18 +36,20 @@ export const handlePostRepo = async (
     const meta = await github.getRepoBranchMetadata(parsed.owner, parsed.repo, repoBranch);
     const commits = await github.getCommits(parsed.owner, parsed.repo, repoBranch, 1, 50);
 
-    currentRepo = {
+    const repoState = {
       repoWebUrl,
       repoBranch,
       health: { exists: true, hasValidBranch: true },
       totalCommits: commits.length,
     };
-    currentRepoTarget = parsed;
+    setRepoState(repoState, parsed);
+
+    await initiateScan(parsed.owner, parsed.repo, repoBranch);
 
     return res.status(201).json({
       message: "Repo stored",
       repo: {
-        ...currentRepo,
+        ...repoState,
         repoName: meta.repo.fullName,
         branchHead: meta.branch.commitSha,
       },
@@ -79,6 +61,9 @@ export const handlePostRepo = async (
 };
 
 export const handleGetRepo = async (_req: Request, res: Response) => {
+  const currentRepo = getCurrentRepoState();
+  const currentRepoTarget = getCurrentRepoTarget();
+
   if (!currentRepo || !currentRepoTarget) {
     return res.status(404).json({ error: "No repo configured" });
   }
