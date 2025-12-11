@@ -1,4 +1,4 @@
 # Platform
 
-Frontend (React) placeholder.
+Has supporting react application.
 
